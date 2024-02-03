@@ -6,9 +6,15 @@ from dataclasses import dataclass
 import numpy as np
 import matplotlib.pyplot as plt
 
+########
+### change this 
+# 노이즈를 추가할 데이터 포인트의 비율
+outlier_ratio = 0.7 # 0.9 means 90% outlier
 
 # 차수가 k (odd) 인 다항식의 매개변수를 랜덤으로 생성
-degree = 7
+degree = 5
+
+#########
 
 coefficients = np.random.rand(degree + 1) - 0.5  # -0.5 ~ 0.5 범위의 랜덤 값
 
@@ -25,7 +31,7 @@ x = np.linspace(x_range.min, x_range.max, 400)
 # 다항식으로 y 값 계산
 y = np.polyval(coefficients, x)
 
-y_range = Range(min=1.2*np.min(y), max=1.2*np.max(y))
+y_range = Range(min=1.2*np.min(y) - 0.1, max=1.2*np.max(y) + 0.1)
 
 # 곡선 그리기
 plt.figure(figsize=(10, 6))
@@ -43,14 +49,13 @@ plt.show()
 # 2
 #########################################################33
 
-# true data point 1000개를 곡선에서 샘플링
+# true data point k개를 곡선에서 샘플링
 num_measurements = 3000
 
 x_samples = np.linspace(x_range.min, x_range.max, num_measurements)
 y_samples = np.polyval(coefficients, x_samples)
 
 # k%의 랜덤한 포인트에만 노이즈 추가
-outlier_ratio = 0.9 # 노이즈를 추가할 데이터 포인트의 비율
 num_noisy_points = int(num_measurements * outlier_ratio)  # 노이즈를 추가할 데이터 포인트의 수
 
 # 노이즈를 추가할 랜덤한 인덱스 선택
@@ -67,6 +72,7 @@ small_noise = np.random.normal(0, small_noise_std, num_measurements)
 y_samples_noisy = y_samples + small_noise
 
 # 선택된 데이터 포인트들에는 원래 정의된 노이즈를 추가
+# to prevent the fixed-mean biased overfit, add two different modal noises.
 white_noise_mean1 = 0.5
 big_noise_std1 = 1.0
 white_noise_mean2 = -0.2
@@ -139,8 +145,7 @@ for ii, gamma in enumerate(np.linspace(0.1, 0.5, 20)):
     # Cauchy 커널 가중치 계산
     residuals_initial = y_samples_noisy - y_initial_predicted
     weights_cauchy = 1 / (1 + (residuals_initial / gamma) ** 2)
-
-    weights_cauchy = np.sqrt(weights_cauchy)
+    weights_cauchy = np.sqrt(weights_cauchy) # empirically much smoother converge 
 
     # 가중치 적용
     W_cauchy = np.diag(weights_cauchy)
@@ -196,6 +201,8 @@ for ii, gamma in enumerate(np.linspace(0.1, 0.5, 20)):
     weight_threshold_for_outlier_removal = np.percentile(
         weights_cauchy, 
         100 * outlier_ratio * outlier_ratio_damper_for_slow_removal)
+    if weight_threshold_for_outlier_removal < 0:
+        weight_threshold_for_outlier_removal = 1.0
     print(f"weight_threshold_for_outlier_removal: {weight_threshold_for_outlier_removal:.3f}")
 
     # Plot the threshold line on the histogram
